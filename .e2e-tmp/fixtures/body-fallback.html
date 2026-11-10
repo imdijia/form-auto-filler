@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>v2 夹具 - Tier 4 body 兜底</title>
+<!--
+  QA v2 静态夹具。无外链资源、无远程字体、无协议 URL 字面。
+  判别意图：页面没有 form / dialog，也没有包住多个控件的共同祖先容器，
+  按四级优先级应兜底到 body；单个孤立可见控件仍必须被填入（AC-V2-02 不得只填部分）。
+  本页刻意不放任何搜索框，避免与 AC-V2-03「容器之外」语义冲突。
+-->
+<style>
+  body { font-family: system-ui, sans-serif; margin: 16px; color: #1f2a3d; background: #f4f6f9; }
+  .form-row { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
+  .form-row label { width: 110px; font-size: 13px; }
+  .form-row input { width: 220px; padding: 3px 6px; font: inherit; box-sizing: border-box; }
+  .page-actions button { padding: 5px 16px; font: inherit; cursor: pointer; }
+</style>
+</head>
+<body data-page="body-fallback">
+
+<p>孤立控件页：无表单、无弹窗、无公共祖先容器。</p>
+
+<div class="form-row"><label for="solo-name">姓名</label><input id="solo-name" name="personName" type="text" autocomplete="off"></div>
+
+<div class="page-actions">
+  <button type="button" id="submit-btn">页面提交登记</button>
+</div>
+
+<script>
+(function () {
+  window.__qa = { submitClicks: 0, submitEvents: 0, errors: [] };
+  document.getElementById('submit-btn').addEventListener('click', function () { window.__qa.submitClicks += 1; });
+  document.addEventListener('submit', function (e) { e.preventDefault(); window.__qa.submitEvents += 1; }, true);
+  window.addEventListener('error', function (e) { window.__qa.errors.push(String(e.message)); });
+  window.addEventListener('unhandledrejection', function (e) { window.__qa.errors.push('rejection:' + String(e.reason)); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://form-auto-filler.local/contracts/rules.v1.json",
+  "title": "Form Auto Filler Rules v1.1",
+  "description": "Data-only rule store. Global defaults + site overrides + page overrides. Page overrides contain incremental corrections only. The rule primary key is the page fingerprint (urlPattern + structureHash); static CSS/XPath selectors are forbidden. No executable code is allowed anywhere in a document.",
+  "type": "object",
+  "required": ["schemaVersion", "global"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1, "description": "Import must reject incompatible versions with E_RULE_SCHEMA_INVALID." },
+    "global": { "$ref": "#/$defs/GlobalConfig" },
+    "sites": {
+      "type": "object",
+      "description": "Key is a host pattern, e.g. '*.test.example.com'.",
+      "additionalProperties": { "$ref": "#/$defs/SiteOverride" },
+      "default": {}
+    },
+    "pages": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/PageOverride" },
+      "default": []
+    }
+  },
+  "$defs": {
+    "FieldType": {
+      "type": "string",
+      "enum": [
+        "personName", "gender", "idCard", "phone", "landline", "email",
+        "date", "time", "region", "address", "organization", "school",
+        "education", "jobTitle", "code", "amount", "quantity",
+        "percentage", "dictEnum", "longText"
+      ]
+    },
+    "AliasDictionary": {
+      "type": "object",
+      "description": "Keys must be one of the 20 authoritative field types. Values are Chinese alias strings.",
+      "propertyNames": { "$ref": "#/$defs/FieldType" },
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string", "minLength": 1 },
+        "uniqueItems": true
+      }
+    },
+    "Weights": {
+      "type": "object",
+      "description": "Feature weights and the confidence threshold. All values are numbers, never code.",
+      "required": ["confidenceThreshold"],
+      "properties": {
+        "label": { "type": "number", "minimum": 0 },
+        "placeholder": { "type": "number", "minimum": 0 },
+        "nameId": { "type": "number", "minimum": 0 },
+        "ariaLabel": { "type": "number", "minimum": 0 },
+        "nearbyText": { "type": "number", "minimum": 0 },
+        "regexFeature": { "type": "number", "minimum": 0 },
+        "confidenceThreshold": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": { "type": "number" }
+    },
+    "GeneratorConfig": {
+      "type": "object",
+      "description": "Per-type generator parameters. Regex must be stored as a string and constructed with new RegExp at runtime.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "Limits": {
+      "type": "object",
+      "description": "Thresholds defined in ARCH-v1.md section 17.2 and LIMITS in contracts/types.ts. Optional in the rule document; runtime defaults apply when absent.",
+      "properties": {
+        "confidenceThreshold": { "type": "number", "minimum": 0, "maximum": 1 },
+        "virtualScrollThreshold": { "type": "integer", "minimum": 1 },
+        "maxFieldsPerPage": { "type": "integer", "minimum": 1 },
+        "driftJaccardThreshold": { "type": "number", "minimum": 0, "maximum": 1 },
+        "driftConsecutiveScans": { "type": "integer", "minimum": 1 },
+        "driftRemindCooldownDays": { "type": "integer", "minimum": 0 },
+        "linkageTimeoutMs": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "PresetsConfig": {
+      "type": "object",
+      "description": "Reserved in v1. Empty string means not preset, fall back to RandomProvider. UI does not expose this in v1.",
+      "required": ["global", "bySite", "byPage"],
+      "properties": {
+        "global": { "$ref": "#/$defs/PresetValues" },
+        "bySite": { "type": "object", "additionalProperties": { "$ref": "#/$defs/PresetValues" } },
+        "byPage": { "type": "object", "additionalProperties": { "$ref": "#/$defs/PresetValues" } }
+      },
+      "additionalProperties": false
+    },
+    "PresetValues": {
+      "type": "object",
+      "description": "Keys use the same 20 field type keys. Values are strings; empty means unset.",
+      "propertyNames": { "$ref": "#/$defs/FieldType" },
+      "additionalProperties": { "type": "string" },
+      "default": {}
+    },
+    "GlobalConfig": {
+      "type": "object",
+      "required": ["aliasDictionary", "weights", "generators", "presets"],
+      "properties": {
+        "aliasDictionary": { "$ref": "#/$defs/AliasDictionary" },
+        "weights": { "$ref": "#/$defs/Weights" },
+        "generators": { "$ref": "#/$defs/GeneratorConfig" },
+        "presets": { "$ref": "#/$defs/PresetsConfig" },
+        "limits": { "$ref": "#/$defs/Limits" }
+      },
+      "additionalProperties": false
+    },
+    "SiteOverride": {
+      "type": "object",
+      "description": "Site-level overrides: dedicated dictionaries, date format, enum dictionaries.",
+      "properties": {
+        "aliasDictionary": { "$ref": "#/$defs/AliasDictionary" },
+        "dateFormat": { "type": "string" },
+        "enumDictionaries": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "FieldLocator": {
+      "type": "object",
+      "description": "Human-readable incremental hint, never a rule primary key. css/xpath strategies are deliberately excluded (PRD section 12, UIUX section 4.5).",
+      "required": ["strategy", "value", "fallbacks", "scope", "frame"],
+      "properties": {
+        "strategy": { "type": "string", "enum": ["labelText", "attr", "domPath", "rowAnchor"] },
+        "value": { "type": "string", "minLength": 1 },
+        "fallbacks": { "type": "array", "items": { "type": "string" } },
+        "scope": { "type": "string", "enum": ["form", "dialog", "document"] },
+        "frame": { "type": "string", "enum": ["top", "same-origin-iframe"] },
+        "anchorLabel": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "FieldOverride": {
+      "type": "object",
+      "description": "One incremental correction. Never a full field list.",
+      "required": ["locator", "action"],
+      "properties": {
+        "locator": { "$ref": "#/$defs/FieldLocator" },
+        "action": { "type": "string", "enum": ["setType", "skip", "forceValue"] },
+        "fieldType": { "$ref": "#/$defs/FieldType" },
+        "note": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "action": { "const": "setType" } }, "required": ["action"] },
+          "then": { "required": ["fieldType"] }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "PageOverride": {
+      "type": "object",
+      "required": ["pageId", "urlPattern", "hashAlgorithm", "structureHash", "detectedAt", "overrides"],
+      "properties": {
+        "pageId": { "type": "string", "minLength": 1 },
+        "urlPattern": { "type": "string", "minLength": 1, "description": "Glob or regex source string. Data only, not executed as code." },
+        "hashAlgorithm": { "type": "string", "description": "e.g. form-skeleton-v1. Normalization must strip dynamic ids, random classes, data-v-* and timestamps." },
+        "structureHash": { "type": "string", "minLength": 1 },
+        "detectedAt": { "type": "string", "format": "date-time" },
+        "overrides": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/FieldOverride" },
+          "maxItems": 50,
+          "description": "Only a few corrections per page. A large array means someone is rebuilding a field map, which this schema forbids."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

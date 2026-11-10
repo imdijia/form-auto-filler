@@ -1,0 +1,16 @@
+# 统一换行符，保证跨平台克隆后源码指纹可复现
+* text=auto eol=lf
+
+# 二进制文件不参与文本转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.zip binary
+*.crx binary
+*.pem binary

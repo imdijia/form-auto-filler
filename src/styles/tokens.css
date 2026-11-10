@@ -1,0 +1,117 @@
+/* Design tokens - the only place hex color literals are allowed.
+   :host is the Shadow DOM equivalent of :root, so one file serves both
+   extension pages and the injected UI without leaking global styles. */
+:root,
+:host {
+  --bg: #F5F7FA;
+  --surface: #FFFFFF;
+  --fg: #16202E;
+  --muted: #5A6B81;
+  --accent: #0369A1;
+  --border: #DCE3EC;
+  --brand-ink: #0C4A6E;
+  --accent-on: #FFFFFF;
+  --accent-hover: #0284C7;
+  --accent-active: #075985;
+  --success: #1F7A4D;
+  --warn: #9A6B12;
+  --danger: #B3261E;
+  --info: var(--accent);
+  --draft: var(--muted);
+  --fg-2: #37465C;
+  --surface-warm: #EEF2F7;
+  --meta: #64748B;
+  --border-soft: #EDF1F6;
+  --accent-soft: #E0F2FE;
+  --success-soft: #E9F3ED;
+  --warn-soft: #F7F0DF;
+  --danger-soft: #FAECEA;
+  --border-control: #8B9AAE;
+  --pick-fill: rgba(2, 132, 199, 0.12);
+
+  --font-display: "Noto Sans SC", "Lexend", "Microsoft YaHei", sans-serif;
+  --font-body: "Noto Sans SC", "Source Sans 3", "Microsoft YaHei", sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 2rem;
+  --leading-body: 1.6;
+  --leading-tight: 1.25;
+  --leading-row: 1.4;
+  --tracking-caps: 0.08em;
+  --tracking-display: -0.01em;
+  --weight-read: 400;
+  --weight-emphasize: 510;
+  --weight-announce: 590;
+  --container-max: 1080px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 9999px;
+
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border);
+  --elev-raised: 0 6px 20px rgba(16, 32, 56, 0.12);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 32%, transparent);
+
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --motion-exit: 100ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  --z-inject: 2147483000;
+  --z-highlight: 2147483645;
+  --z-toolbar: 2147483646;
+  --z-panel: 2147483647;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0F1621;
+  --surface: #17212F;
+  --surface-warm: #1E2A3A;
+  --fg: #E8EDF4;
+  --fg-2: #C3CDDA;
+  --muted: #93A2B5;
+  --meta: #8798AD;
+  --border: #2A3849;
+  --border-soft: #202C3B;
+  --border-control: #47586D;
+  --accent: #38BDF8;
+  --accent-on: #082F49;
+  --accent-hover: #7DD3FC;
+  --accent-active: #0EA5E9;
+  --accent-soft: #082F49;
+  --pick-fill: rgba(56, 189, 248, 0.14);
+  --success: #58B98A;
+  --warn: #D9A94B;
+  --danger: #E88078;
+  --brand-ink: #075985;
+  --elev-raised: 0 6px 20px rgba(0, 0, 0, 0.40);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root,
+  :host {
+    --motion-fast: 0.01ms;
+    --motion-base: 0.01ms;
+    --motion-exit: 0.01ms;
+  }
+}

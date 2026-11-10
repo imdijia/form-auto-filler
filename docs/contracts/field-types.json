@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://form-auto-filler.local/contracts/field-types.v1.json",
+  "title": "Form Auto Filler Field Types v1",
+  "description": "20 inferred field types plus one 'unknown' sentinel. The sentinel is not a generator target. This file is authoritative for the field type enum only; confidenceThresholdDefault is a mirrored default, not authoritative.",
+  "schemaVersion": 1,
+  "sentinel": "unknown",
+  "confidenceThresholdDefault": 0.6,
+  "confidenceThresholdAuthority": "docs/contracts/types.ts#LIMITS.CONFIDENCE_THRESHOLD (runtime) and rules.schema.json#weights.confidenceThreshold (rule document). This value is mirrored for field-type metadata only and must stay equal to both sources; it is NOT authoritative.",
+  "featurePriority": [
+    "label",
+    "placeholder",
+    "nameId",
+    "ariaLabel",
+    "nearbyText",
+    "formRowStructure",
+    "regexOrAttribute"
+  ],
+  "consistencyGroups": [
+    {
+      "id": "identity",
+      "members": ["idCard", "date", "gender", "personName"],
+      "rule": "idCard positions 7-14 must match date; idCard position 17 parity must match gender; all three belong to the same generated record for a given seed."
+    }
+  ],
+  "types": [
+    {
+      "key": "personName",
+      "label": "人名",
+      "generator": "chinese-person-name",
+      "constraints": { "minLength": 2, "maxLength": 4, "digitsAllowed": false },
+      "aliases": ["姓名", "名字", "联系人", "申请人", "经办人"],
+      "features": ["autocomplete=name", "maxlength<=8"]
+    },
+    {
+      "key": "gender",
+      "label": "性别",
+      "generator": "page-enum-or-gender",
+      "constraints": { "preferPageOptions": true, "fallback": ["男", "女"] },
+      "aliases": ["性别", "男女"],
+      "features": ["enumOptions.length===2"]
+    },
+    {
+      "key": "idCard",
+      "label": "身份证",
+      "generator": "gb11643-id-card",
+      "constraints": { "length": 18, "checkDigit": "GB 11643", "validRegionCode": true, "validBirthDate": true },
+      "aliases": ["身份证号", "证件号码", "公民身份号码", "idCard"],
+      "features": ["maxlength=18", "numeric-only validation"]
+    },
+    {
+      "key": "phone",
+      "label": "手机号",
+      "generator": "cn-mobile",
+      "constraints": { "length": 11, "pattern": "^1[3-9][0-9]{9}$" },
+      "aliases": ["手机号码", "联系电话", "手机号", "手机", "联系方式"],
+      "features": ["maxlength=11", "type=tel"]
+    },
+    {
+      "key": "landline",
+      "label": "座机",
+      "generator": "cn-landline",
+      "constraints": { "format": "AREA-NUMBER", "example": "010-12345678" },
+      "aliases": ["座机", "固定电话", "办公电话"],
+      "features": ["type=tel", "pattern contains hyphen"]
+    },
+    {
+      "key": "email",
+      "label": "邮箱",
+      "generator": "ascii-email",
+      "constraints": { "asciiOnly": true, "format": "local@domain" },
+      "aliases": ["邮箱", "电子邮箱", "Email", "邮件地址"],
+      "features": ["type=email"]
+    },
+    {
+      "key": "date",
+      "label": "日期",
+      "generator": "formatted-date",
+      "constraints": { "respectValueFormat": true, "mustMatchIdCardBirthDate": true },
+      "aliases": ["出生日期", "日期", "生效日期", "办理日期"],
+      "features": ["type=date", "readonly input with calendar icon"]
+    },
+    {
+      "key": "time",
+      "label": "时间",
+      "generator": "formatted-time",
+      "constraints": { "formats": ["HH:mm", "HH:mm:ss"] },
+      "aliases": ["时间", "时刻", "办理时间"],
+      "features": ["type=time"]
+    },
+    {
+      "key": "region",
+      "label": "省市县",
+      "generator": "admin-region",
+      "constraints": { "levels": 3, "preferPageOptions": true },
+      "aliases": ["省市县", "户籍所在地", "籍贯", "所属地区"],
+      "features": ["cascader root"]
+    },
+    {
+      "key": "address",
+      "label": "详细地址",
+      "generator": "chinese-address",
+      "constraints": { "respectMaxLength": true },
+      "aliases": ["详细地址", "住址", "住宅", "联系地址"],
+      "features": ["textarea", "maxlength>=30"]
+    },
+    {
+      "key": "organization",
+      "label": "单位名称",
+      "generator": "chinese-organization",
+      "constraints": { "suffixes": ["有限公司", "局", "中心", "研究院"] },
+      "aliases": ["所属单位", "工作单位", "单位名称", "机构"],
+      "features": ["remote-search select"]
+    },
+    {
+      "key": "school",
+      "label": "学校",
+      "generator": "chinese-school",
+      "constraints": { "respectMaxLength": true },
+      "aliases": ["毕业院校", "学校", "就读院校"],
+      "features": ["long text with school dictionary"]
+    },
+    {
+      "key": "education",
+      "label": "学历/学位",
+      "generator": "page-enum-or-education",
+      "constraints": { "preferPageOptions": true },
+      "aliases": ["学历", "学位", "最高学历", "文化程度"],
+      "features": ["enumOptions.length>0"]
+    },
+    {
+      "key": "jobTitle",
+      "label": "职称/职务",
+      "generator": "page-enum-or-short-text",
+      "constraints": { "preferPageOptions": true },
+      "aliases": ["职称", "职务", "岗位", "专业技术职务"],
+      "features": ["enumOptions.length>0"]
+    },
+    {
+      "key": "code",
+      "label": "编号编码",
+      "generator": "pattern-code",
+      "constraints": { "respectPattern": true, "respectMaxLength": true, "charset": "alphanumeric" },
+      "aliases": ["编号", "编码", "证号", "档案号", "流水号"],
+      "features": ["pattern attribute present"]
+    },
+    {
+      "key": "amount",
+      "label": "金额",
+      "generator": "decimal-number",
+      "constraints": { "fractionDigits": 2, "respectMinMaxStep": true },
+      "aliases": ["金额", "费用", "资金", "工资"],
+      "features": ["type=number", "fractional step"]
+    },
+    {
+      "key": "quantity",
+      "label": "数量",
+      "generator": "integer-number",
+      "constraints": { "integer": true, "respectMinMaxStep": true },
+      "aliases": ["数量", "人数", "件数", "次数"],
+      "features": ["type=number", "step=1"]
+    },
+    {
+      "key": "percentage",
+      "label": "百分比",
+      "generator": "percentage",
+      "constraints": { "min": 0, "max": 100, "suffixDependsOnPage": true },
+      "aliases": ["比例", "百分比", "占比", "完成率"],
+      "features": ["max=100"]
+    },
+    {
+      "key": "dictEnum",
+      "label": "字典枚举",
+      "generator": "page-enum-only",
+      "constraints": { "mustUsePageOptions": true, "neverInventValues": true },
+      "aliases": ["政治面貌", "人才类别", "状态", "类型"],
+      "features": ["non-native select root", "dropdown panel"]
+    },
+    {
+      "key": "longText",
+      "label": "长文本备注",
+      "generator": "chinese-sentence",
+      "constraints": { "respectMaxLength": true },
+      "aliases": ["备注", "说明", "主要成果", "成就", "描述"],
+      "features": ["textarea"]
+    }
+  ]
+}

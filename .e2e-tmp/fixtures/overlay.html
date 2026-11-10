@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>v2.1 浮层层叠夹具 - 全屏遮罩与原生 dialog.showModal()</title>
+<!--
+  QA v2.1 本地静态夹具。零外链资源、零远程字体、零统计 SDK、零图片外链。
+  所有样式与脚本内联。页面不出现完整协议 URL 字面，页面不发起任何网络请求。
+  页面不出现 emoji 功能图标、不出现紫粉渐变、不出现空洞占位文案。
+
+  判别意图（修复前必然失败，修复后必然通过）：
+  1. 遮挡一 #z-mask：position fixed / inset 0 / z-index 2147483647 /
+     pointer-events auto 的全屏遮罩，且页面脚本在 DOM 变化时把它重挂到
+     documentElement 末尾，保证在普通层里它绘制在扩展宿主之后。
+     仅靠普通层 z-index 的实现必然被它盖住。
+  2. 遮挡二 <dialog>.showModal()：进入 top layer，普通层 z-index 完全无效。
+     弹窗在扩展注入之后才打开，专门检验宿主是否被重新提升到 top layer 栈尾。
+  3. 弹窗一关闭后立刻打开弹窗二，检验 MutationObserver 对第二次提升仍生效。
+  4. 页面内提供可见输入框，保证一次 CDP 手势能完成填充并产出结果条与悬浮提示。
+  5. 所有层叠判定用 document.elementsFromPoint 的从上到下顺序 +
+     shadowRoot.elementFromPoint 命中 + 真实指针点击，禁止以「元素存在」代替「在最上层」。
+
+  Shadow DOM 命中判定说明：扩展 UI 挂在 #faf-shadow-root 的 open shadow root 内，
+  document.elementFromPoint 在 open shadow root 上可能返回宿主元素（retargeting），
+  也可能返回影子树内元素；因此判定同时接受「命中宿主」与「命中 getRootNode() === sr
+  的影子树内元素」，并用 sr.elementFromPoint(x, y) 断言真正命中 .f-fab / .f-btn，
+  最后必须派发真实指针点击并观测 UI 状态变化，三者同时成立才算浮层可见可点。
+-->
+<style>
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 14px; color: #1f2a3d; background: #f4f6f9; }
+  #overlay-dialog { border: 1px solid #7d90ab; background: #ffffff; max-width: 700px; padding: 0 0 12px; border-radius: 6px; box-shadow: 0 6px 22px rgba(20, 38, 66, 0.16); }
+  .dlg-title { padding: 10px 16px; background: #e8eef6; font-weight: 600; border-bottom: 1px solid #c8d2e0; }
+  .dlg-body { padding: 8px 16px; }
+  .ov-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+  .ov-row label { width: 140px; font-size: 13px; flex: none; }
+  .ov-row input { width: 260px; padding: 3px 6px; font: inherit; box-sizing: border-box; }
+  #z-mask {
+    position: fixed; inset: 0; z-index: 2147483647; pointer-events: auto;
+    background: rgba(15, 32, 56, 0.20); border: 0; margin: 0; padding: 0;
+  }
+  .mask-toolbar {
+    position: absolute; top: 12px; left: 12px; z-index: 1;
+    background: #ffffff; border: 1px solid #9aa9bd; border-radius: 4px;
+    padding: 8px 10px; font-size: 13px;
+  }
+  .mask-toolbar p { margin: 0 0 6px; }
+  .mask-toolbar button { padding: 4px 10px; font: inherit; cursor: pointer; margin-right: 6px; }
+  dialog { border: 1px solid #7d90ab; border-radius: 6px; padding: 16px; min-width: 360px; background: #ffffff; }
+  dialog::backdrop { background: rgba(10, 24, 44, 0.35); }
+  .native-title { font-weight: 600; margin: 0 0 10px; }
+  .native-row { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
+  .native-row label { width: 120px; font-size: 13px; flex: none; }
+  .native-row input { width: 200px; padding: 3px 6px; font: inherit; box-sizing: border-box; }
+  .native-actions { margin-top: 12px; }
+  .native-actions button { padding: 5px 14px; font: inherit; cursor: pointer; margin-right: 8px; }
+</style>
+</head>
+<body>
+
+<!-- 唯一可见 role=dialog 主容器：保证一次 CDP 手势命中并产出结果条 -->
+<div role="dialog" id="overlay-dialog" aria-label="浮层遮挡验收区">
+  <div class="dlg-title">浮层遮挡验收区</div>
+  <div class="dlg-body">
+    <div class="ov-row"><label for="ov-a">备用登记项</label><input id="ov-a" data-qa-id="ov-a" name="ovA" type="text" autocomplete="off"></div>
+    <div class="ov-row"><label for="ov-b">页面登记项</label><input id="ov-b" data-qa-id="ov-b" name="ovB" type="text" autocomplete="off"></div>
+    <div class="ov-row"><label for="ov-c">兜底探针</label><input id="ov-c" data-qa-id="ov-c" name="ovC" type="text" autocomplete="off"></div>
+  </div>
+</div>
+
+<!-- 遮挡一：全屏遮罩，普通层最大 z-index，且脚本持续把它重挂到 html 末尾 -->
+<div id="z-mask">
+  <div class="mask-toolbar">
+    <p>页面全屏遮罩层，z-index 2147483647</p>
+    <button type="button" id="open-dialog-1">打开页面原生弹窗一</button>
+  </div>
+</div>
+
+<!-- 遮挡二：原生 dialog + showModal()，top layer，z-index 无效 -->
+<dialog id="native-dialog-1" role="dialog" aria-label="页面原生弹窗一">
+  <p class="native-title">页面模态弹窗一</p>
+  <div class="native-row"><label for="dlg-input-1">弹窗内输入框</label><input id="dlg-input-1" data-qa-id="dlg-input-1" type="text" autocomplete="off"></div>
+  <div class="native-actions">
+    <button type="button" id="dlg-next-1">关闭本弹窗并打开弹窗二</button>
+  </div>
+</dialog>
+
+<dialog id="native-dialog-2" role="dialog" aria-label="页面原生弹窗二">
+  <p class="native-title">页面模态弹窗二</p>
+  <div class="native-row"><label for="dlg-input-2">弹窗内输入框</label><input id="dlg-input-2" data-qa-id="dlg-input-2" type="text" autocomplete="off"></div>
+  <div class="native-actions">
+    <button type="button" id="dlg-close-2">关闭本弹窗</button>
+  </div>
+</dialog>
+
+<script>
+(function () {
+  window.__qa = { submitClicks: 0, submitEvents: 0, errors: [], pageErrors: 0, dialogOpenCount: 0, maskReappends: 0 };
+  var d1 = document.getElementById('native-dialog-1');
+  var d2 = document.getElementById('native-dialog-2');
+  var mask = document.getElementById('z-mask');
+
+  document.getElementById('open-dialog-1').addEventListener('click', function () {
+    if (!d1.open) { d1.showModal(); window.__qa.dialogOpenCount += 1; }
+  });
+  document.getElementById('dlg-next-1').addEventListener('click', function () {
+    if (d1.open) d1.close();
+    if (!d2.open) { d2.showModal(); window.__qa.dialogOpenCount += 1; }
+  });
+  document.getElementById('dlg-close-2').addEventListener('click', function () {
+    if (d2.open) d2.close();
+  });
+  for (var i = 0; i < 2; i += 1) {
+    (function (dlg) {
+      dlg.addEventListener('close', function () { window.__qa.dialogOpenCount += 0; });
+    })(i === 0 ? d1 : d2);
+  }
+
+  // 页面脚本把遮罩重挂到 documentElement 末尾，保证同 z-index 下绘制顺序在
+  // 扩展宿主之后。这是普通层能构造出的最强遮挡；top layer 仍需弹窗来检验。
+  var reappend = function () {
+    if (mask.parentElement !== document.documentElement || mask !== document.documentElement.lastElementChild) {
+      document.documentElement.appendChild(mask);
+      window.__qa.maskReappends += 1;
+    }
+  };
+  reappend();
+  var observer = new MutationObserver(function () { reappend(); });
+  observer.observe(document.documentElement, { childList: true });
+
+  document.addEventListener('submit', function (e) { e.preventDefault(); window.__qa.submitEvents += 1; }, true);
+  window.addEventListener('error', function (e) { window.__qa.errors.push(String(e.message)); window.__qa.pageErrors += 1; });
+  window.addEventListener('unhandledrejection', function (e) { window.__qa.errors.push('rejection:' + String(e.reason)); window.__qa.pageErrors += 1; });
+})();
+</script>
+</body>
+</html>

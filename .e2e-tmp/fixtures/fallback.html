@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>v2.1 兜底生成夹具 - 语义未识别字段全集</title>
+<!--
+  QA v2.1 本地静态夹具。零外链资源、零远程字体、零统计 SDK、零图片外链。
+  所有样式与脚本内联。页面不出现完整协议 URL 字面，页面不发起任何网络请求。
+  页面不出现 emoji 功能图标、不出现紫粉渐变、不出现空洞占位文案。
+
+  判别意图（修复前必然失败，修复后必然通过）：
+  1. 唯一可见 role=dialog 容器 #fallback-dialog 内放多组语义未识别控件；
+     其中 12 个标签/占位符/name/id 均不命中任何字段别名，L2 必判 unknown。
+     R2 口径下 unknown 一律「待绑定」跳过，这 12 个 DOM 值必然全空；
+     v2.1 兜底生成后必须全部非空。这是 AC-V2-15 的主判别器。
+  2. 语义词来源覆盖 label / 仅 placeholder / 全部为空（该字段）/ maxlength /
+     pattern / 同名去重；格式约束覆盖 number / date / email / select /
+     textarea / contenteditable。格式类字段只断言格式合法与值非空，不断言中文。
+  3. #grp-common（P0 回归，team-lead 实证的组件库常见字段）：4 个控件刻意
+     不带 id / name / aria-label，label 无 for 或完全没有 label 文本，只用
+     placeholder 强命中别名。修复前 L2 判 unknown、confidence 0.51，被填入
+     「我是请输入网格员姓名测试数据·NN」等兜底文案，手机号被页面判无效；
+     修复后必须识别为 personName / phone / idCard 并生成合法值。
+     #cf-phone-error 由页面脚本在 input/change/focusout 时写入
+     「请输入正确的手机号」，用于断言修复后该错误文案不再出现。
+  4. 容器外搜索框、筛选项、普通文本框带哨兵值，断言零写入。
+  5. 容器内 9 类硬保护控件带哨兵值，断言零写入、不进入兜底生成。
+  6. 页面自己的提交按钮与 submit 计数器，断言扩展从未点击、从未提交。
+  7. 两个 pattern 字段：一个四位数字 pattern（断言 4 位数字或明确跳过），
+     一个任何兜底候选都无法满足的 pattern（断言明确跳过且不阻塞其余控件）。
+
+  字段取值一律以 data-qa-id 为观测主键；fb-anon 刻意不带 id / name /
+  label / placeholder / aria-label，且所在行不带 form-row/form-item 类，
+  使 nearbyText 亦为空，从而触发统一语义词「该字段」。
+  #grp-common 四个控件同样不带 id / name，避免 nameId 特征意外命中别名。
+-->
+<style>
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 14px; color: #1f2a3d; background: #f4f6f9; }
+  #outside-bar { border: 1px solid #c8d2e0; background: #ffffff; padding: 10px 12px; margin-bottom: 14px; border-radius: 4px; }
+  #outside-bar label { display: inline-block; margin-right: 6px; font-size: 13px; }
+  #outside-bar input, #outside-bar select { margin-right: 14px; padding: 3px 6px; }
+  #fallback-dialog { border: 1px solid #7d90ab; background: #ffffff; max-width: 1040px; padding: 0 0 12px; border-radius: 6px; box-shadow: 0 6px 22px rgba(20, 38, 66, 0.16); }
+  .dlg-title { padding: 10px 16px; background: #e8eef6; font-weight: 600; border-bottom: 1px solid #c8d2e0; }
+  .dlg-body { padding: 6px 16px; }
+  .grp { border: 1px dashed #b6c3d4; padding: 8px 12px 10px; margin: 10px 0; border-radius: 4px; }
+  .grp > h3 { margin: 0 0 8px; font-size: 14px; color: #33507a; }
+  .fb-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .fb-row label { width: 148px; font-size: 13px; flex: none; }
+  .fb-row input, .fb-row select, .fb-row textarea { width: 260px; padding: 3px 6px; font: inherit; box-sizing: border-box; }
+  .fb-row textarea { height: 44px; }
+  .fb-row [contenteditable="true"] { width: 260px; min-height: 30px; border: 1px solid #9aa9bd; padding: 4px 6px; box-sizing: border-box; }
+  .skip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+  .skip-grid .fb-row label { width: 160px; }
+  .skip-grid input { width: 180px; }
+  .cf-plain { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .cf-plain input { width: 260px; padding: 3px 6px; font: inherit; box-sizing: border-box; }
+  .el-form-item { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .el-form-item__label { width: 148px; font-size: 13px; flex: none; }
+  .el-form-item__content { display: flex; align-items: center; }
+  .cf-visible { width: 148px; font-size: 13px; flex: none; }
+  .cf-error { color: #b3261e; font-size: 12px; min-width: 1px; }
+  .dlg-actions { padding: 6px 16px 0; }
+  .dlg-actions button { padding: 5px 16px; font: inherit; cursor: pointer; }
+  .is-disabled-look { opacity: 0.65; }
+</style>
+</head>
+<body>
+
+<!-- 容器之外：搜索框、筛选项、普通文本框，全部带哨兵值，不得被写入 -->
+<div id="outside-bar">
+  <label for="fb-out-search">全局搜索</label>
+  <input id="fb-out-search" data-qa-id="fb-out-search" name="globalSearch" type="search" value="OUTSIDE-SEARCH-SENTINEL" placeholder="搜索关键字">
+  <label for="fb-out-filter">筛选状态</label>
+  <select id="fb-out-filter" data-qa-id="fb-out-filter" name="globalFilter">
+    <option value="OUTSIDE-FILTER-SENTINEL">全部</option>
+    <option value="draft">草稿</option>
+  </select>
+  <label for="fb-out-text">容器外备注</label>
+  <input id="fb-out-text" data-qa-id="fb-out-text" name="outsideText" type="text" value="OUTSIDE-SENTINEL">
+</div>
+
+<!-- 唯一可见 dialog：自动容器选择 Tier 1 必命中此节点 -->
+<div role="dialog" id="fallback-dialog" class="fb-dialog" aria-label="兜底生成验收区">
+  <div class="dlg-title">兜底生成验收区</div>
+  <div class="dlg-body">
+
+    <section class="grp" id="grp-text">
+      <h3>文本类未识别字段（值须含「我是」与语义词）</h3>
+      <div class="fb-row">
+        <label for="fb-source">来源表</label>
+        <input id="fb-source" data-qa-id="fb-source" name="fbSource" type="text" autocomplete="off">
+      </div>
+      <div class="fb-row">
+        <span class="spacer">仅 placeholder，无 label</span>
+        <input id="fb-placeholder" data-qa-id="fb-placeholder" name="fbPlaceholder" type="text" placeholder="请输入自定义编号" autocomplete="off">
+      </div>
+      <div>
+        <input data-qa-id="fb-anon" type="text" autocomplete="off">
+      </div>
+      <div class="fb-row">
+        <label for="fb-maxlength">长度受限项</label>
+        <input id="fb-maxlength" data-qa-id="fb-maxlength" name="fbMaxlength" type="text" maxlength="8" autocomplete="off">
+      </div>
+      <div class="fb-row">
+        <label for="fb-pattern-4">四位数字约束项</label>
+        <input id="fb-pattern-4" data-qa-id="fb-pattern-4" name="fbPattern4" type="text" maxlength="4" pattern="[0-9]{4}" autocomplete="off">
+      </div>
+      <div class="fb-row">
+        <label for="fb-pattern-unsat">格式受限项</label>
+        <input id="fb-pattern-unsat" data-qa-id="fb-pattern-unsat" name="fbPatternUnsat" type="text" pattern="[A-Z]{3}-[0-9]{4}" autocomplete="off">
+      </div>
+    </section>
+
+    <section class="grp" id="grp-format">
+      <h3>格式约束类未识别字段（只断言格式合法与值非空）</h3>
+      <div class="fb-row">
+        <label for="fb-number">数值备选</label>
+        <input id="fb-number" data-qa-id="fb-number" name="fbNumber" type="number" min="1" max="9" step="2" autocomplete="off">
+      </div>
+      <div class="fb-row">
+        <label for="fb-date">时点备选</label>
+        <input id="fb-date" data-qa-id="fb-date" name="fbDate" type="date" min="2026-01-01" max="2026-12-31" autocomplete="off">
+      </div>
+      <div class="fb-row">
+        <label for="fb-email">函件备选</label>
+        <input id="fb-email" data-qa-id="fb-email" name="fbEmail" type="email" autocomplete="off">
+      </div>
+      <div class="fb-row">
+        <label for="fb-select">枚举备选</label>
+        <select id="fb-select" data-qa-id="fb-select" name="fbSelect">
+          <option value="">请选择</option>
+          <option value="甲档">甲档</option>
+          <option value="乙档">乙档</option>
+          <option value="丙档">丙档</option>
+        </select>
+      </div>
+      <div class="fb-row">
+        <label for="fb-textarea">段落备选</label>
+        <textarea id="fb-textarea" data-qa-id="fb-textarea" name="fbTextarea"></textarea>
+      </div>
+      <div class="fb-row">
+        <label for="fb-rich">富文本备选</label>
+        <div id="fb-rich" data-qa-id="fb-rich" contenteditable="true" role="textbox"></div>
+      </div>
+    </section>
+
+    <section class="grp" id="grp-dup">
+      <h3>同名标签去重与已识别字段回归</h3>
+      <div class="fb-row">
+        <label for="fb-dup-a">同名登记项</label>
+        <input id="fb-dup-a" data-qa-id="fb-dup-a" name="fbDupA" type="text" autocomplete="off">
+      </div>
+      <div class="fb-row">
+        <label for="fb-dup-b">同名登记项</label>
+        <input id="fb-dup-b" data-qa-id="fb-dup-b" name="fbDupB" type="text" autocomplete="off">
+      </div>
+      <div class="fb-row">
+        <label for="fb-known-name">姓名</label>
+        <input id="fb-known-name" data-qa-id="fb-known-name" name="personName" type="text" autocomplete="off">
+      </div>
+      <div class="fb-row">
+        <label for="fb-known-phone">手机号码</label>
+        <input id="fb-known-phone" data-qa-id="fb-known-phone" name="phone" type="tel" maxlength="11" autocomplete="off">
+      </div>
+    </section>
+
+    <section class="grp" id="grp-common">
+      <h3>组件库常见字段（P0 回归：只给 placeholder，禁止掉进兜底）</h3>
+      <!-- ① el-form-item 标准结构：label 无 for，仅 placeholder 强命中 -->
+      <div class="el-form-item" id="cf-row-a">
+        <label class="el-form-item__label">姓名</label>
+        <div class="el-form-item__content">
+          <input data-qa-id="cf-name-a" type="text" placeholder="请输入网格员姓名" autocomplete="off">
+        </div>
+      </div>
+      <!-- ② 仅 placeholder，无任何 label 文本 -->
+      <div class="cf-plain">
+        <input data-qa-id="cf-name-b" type="text" placeholder="请输入网格员姓名" autocomplete="off">
+      </div>
+      <!-- ③ type=tel + placeholder 手机号；页面侧校验错误文案挂在同一行 -->
+      <div class="cf-plain">
+        <label class="cf-visible">手机号</label>
+        <input data-qa-id="cf-phone" type="tel" placeholder="请输入网格员手机号" autocomplete="off">
+        <span class="cf-error" data-qa-id="cf-phone-error" role="alert"></span>
+      </div>
+      <!-- ④ type=text + placeholder 身份证号 -->
+      <div class="cf-plain">
+        <input data-qa-id="cf-idcard" type="text" placeholder="请输入网格员身份证号" autocomplete="off">
+      </div>
+    </section>
+
+    <section class="grp" id="grp-skip">
+      <h3>硬保护控件（均带原始哨兵值，零写入、不进入兜底生成）</h3>
+      <div class="skip-grid">
+        <div class="fb-row"><label for="fb-skip-readonly">只读项</label><input id="fb-skip-readonly" data-qa-id="fb-skip-readonly" type="text" readonly value="SENTINEL-READONLY"></div>
+        <div class="fb-row"><label for="fb-skip-disabled">禁用项</label><input id="fb-skip-disabled" data-qa-id="fb-skip-disabled" type="text" disabled value="SENTINEL-DISABLED"></div>
+        <div class="fb-row"><label for="fb-skip-hidden-attr">隐藏属性项</label><input id="fb-skip-hidden-attr" data-qa-id="fb-skip-hidden-attr" type="text" hidden value="SENTINEL-HIDDEN-ATTR"></div>
+        <div class="fb-row"><label for="fb-skip-display">不显示项</label><input id="fb-skip-display" data-qa-id="fb-skip-display" type="text" style="display:none" value="SENTINEL-DISPLAY"></div>
+        <div class="fb-row"><label for="fb-skip-visibility">不可见项</label><input id="fb-skip-visibility" data-qa-id="fb-skip-visibility" type="text" style="visibility:hidden" value="SENTINEL-VISIBILITY"></div>
+        <div class="fb-row"><label for="fb-skip-hidden-type">隐藏类型项</label><input id="fb-skip-hidden-type" data-qa-id="fb-skip-hidden-type" type="hidden" value="SENTINEL-HIDDEN-TYPE"></div>
+        <div class="fb-row"><label for="fb-skip-file">文件项</label><input id="fb-skip-file" data-qa-id="fb-skip-file" type="file"></div>
+        <div class="fb-row"><label for="fb-skip-password">密码项</label><input id="fb-skip-password" data-qa-id="fb-skip-password" type="password" value="SENTINEL-PASSWORD"></div>
+        <div class="fb-row"><label for="fb-skip-captcha">验证码</label><input id="fb-skip-captcha" data-qa-id="fb-skip-captcha" name="captcha" aria-label="验证码" type="text" value="SENTINEL-CAPTCHA"></div>
+      </div>
+    </section>
+
+  </div>
+  <form id="page-form" class="dlg-actions" novalidate>
+    <button type="submit" id="page-submit">页面提交登记</button>
+  </form>
+</div>
+
+<script>
+(function () {
+  window.__qa = {
+    submitClicks: 0, submitEvents: 0, errors: [], pageErrors: 0,
+    commonPhoneInvalid: false,
+  };
+  var submitBtn = document.getElementById('page-submit');
+  var form = document.getElementById('page-form');
+  submitBtn.addEventListener('click', function () { window.__qa.submitClicks += 1; });
+  form.addEventListener('submit', function (e) { e.preventDefault(); window.__qa.submitEvents += 1; });
+  document.addEventListener('submit', function (e) { e.preventDefault(); window.__qa.submitEvents += 1; }, true);
+  window.addEventListener('error', function (e) { window.__qa.errors.push(String(e.message)); window.__qa.pageErrors += 1; });
+  window.addEventListener('unhandledrejection', function (e) { window.__qa.errors.push('rejection:' + String(e.reason)); window.__qa.pageErrors += 1; });
+
+  /* P0 回归：页面自己的手机号校验。扩展每写入一个值都会派发 input/change，
+     故错误文案能在填充完成后被真实观测到，不需要 QA 去调扩展内部状态。 */
+  var cfPhone = document.querySelector('[data-qa-id="cf-phone"]');
+  var cfPhoneErr = document.querySelector('[data-qa-id="cf-phone-error"]');
+  var CF_PHONE_RE = /^1[3-9][0-9]{9}$/;
+  var validateCfPhone = function () {
+    var value = cfPhone.value || '';
+    var invalid = value.length > 0 && !CF_PHONE_RE.test(value);
+    cfPhoneErr.textContent = invalid ? '请输入正确的手机号' : '';
+    window.__qa.commonPhoneInvalid = invalid;
+    return invalid;
+  };
+  cfPhone.addEventListener('input', validateCfPhone);
+  cfPhone.addEventListener('change', validateCfPhone);
+  cfPhone.addEventListener('focusout', validateCfPhone);
+  window.__qa.validateCommonPhone = validateCfPhone;
+})();
+</script>
+</body>
+</html>

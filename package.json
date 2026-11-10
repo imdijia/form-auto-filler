@@ -1,0 +1,31 @@
+{
+  "name": "form-auto-filler",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.2.1",
+  "description": "Fill test data into forms on test environments. Does not submit.",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "zip": "wxt zip",
+    "postinstall": "wxt prepare",
+    "typecheck": "tsc --noEmit --strict",
+    "check:contracts": "node scripts/check-contracts.mjs",
+    "check:guard": "node scripts/check-guard.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@lucide/vue": "1.70.0",
+    "vue": "3.5.45"
+  },
+  "devDependencies": {
+    "@wxt-dev/module-vue": "1.0.3",
+    "jsdom": "^31.0.0",
+    "typescript": "5.9.3",
+    "vite": "8.3.6",
+    "vitest": "^5.1.0",
+    "wxt": "0.21.5"
+  }
+}

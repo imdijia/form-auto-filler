@@ -1,0 +1,48 @@
+# ---- 依赖 ----
+node_modules/
+.pnpm-store/
+
+# ---- 构建产物（可由 pnpm build 复现，不入库）----
+.output/
+.wxt/
+.vitest/
+
+# ---- 交付二进制包（走 GitHub Release，不入库）----
+*.zip
+
+# ---- E2E 运行时产物与证据（体积大，含临时浏览器 profile）----
+.e2e-tmp/node_modules/
+.e2e-tmp/profile-e2e/
+.e2e-tmp/archive-baseline-*/
+.e2e-tmp/r3-evidence/
+.e2e-tmp/r3-original/
+.e2e-tmp/r3-clean-evidence/
+.e2e-tmp/*-result.json
+.e2e-tmp/e2e-result.json
+.e2e-tmp/*-probe.json
+.e2e-tmp/dry-run*.json
+.e2e-tmp/qa-*-stdout.txt
+.e2e-tmp/local-dev-probe.json
+.e2e-tmp/fixtures-inventory*.json
+
+# ---- 日志与系统临时文件 ----
+*.log
+pnpm-debug.log*
+npm-debug.log*
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+*.swp
+
+# ---- 编辑器 ----
+.idea/
+.vscode/
+
+# ---- 本地环境变量与密钥（安全兜底，永不入库）----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12

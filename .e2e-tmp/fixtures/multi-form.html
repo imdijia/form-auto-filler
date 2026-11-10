@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>v2 夹具 - Tier 2 可见控件最多的 form</title>
+<!--
+  QA v2 静态夹具。无外链资源、无远程字体、无协议 URL 字面。
+  判别意图：页面无 dialog，存在两个 form。E2E 把焦点放进 small form，
+  若实现沿用 v1「焦点最近 form」或「任意 form」会填错容器；
+  按四级优先级应选可见控件最多的 large form，small form 与容器外控件均不得写入。
+-->
+<style>
+  body { font-family: system-ui, sans-serif; margin: 16px; color: #1f2a3d; background: #f4f6f9; }
+  .search-bar { border: 1px solid #c8d2e0; background: #fff; padding: 10px 12px; margin-bottom: 14px; }
+  .search-bar label { display: inline-block; margin-right: 6px; font-size: 13px; }
+  .search-bar input, .search-bar select { margin-right: 14px; padding: 3px 6px; }
+  form { border: 1px solid #7d90ab; background: #fff; padding: 10px 14px; margin: 12px 0; border-radius: 4px; }
+  form > h3 { margin: 0 0 8px; font-size: 14px; color: #33507a; }
+  .form-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .form-row label { width: 110px; font-size: 13px; flex: none; }
+  .form-row input, .form-row select, .form-row textarea { width: 220px; padding: 3px 6px; font: inherit; box-sizing: border-box; }
+  .page-actions button { padding: 5px 16px; font: inherit; cursor: pointer; }
+</style>
+</head>
+<body data-page="multi-form">
+
+<div class="search-bar" id="outside-search">
+  <label for="global-search">全局搜索</label>
+  <input id="global-search" name="globalSearch" type="search" placeholder="搜索关键字">
+  <label for="global-filter">筛选状态</label>
+  <select id="global-filter" name="globalFilter"><option value="">全部</option><option value="draft">草稿</option></select>
+  <label for="outside-text">容器外备注</label>
+  <input id="outside-text" name="outsideText" type="text" value="OUTSIDE-SENTINEL">
+</div>
+
+<form id="form-small" novalidate>
+  <h3>小表单（2 个可见控件，故意放焦点在此）</h3>
+  <div class="form-row"><label for="s-name">姓名</label><input id="s-name" name="personName" type="text" autocomplete="off"></div>
+  <div class="form-row"><label for="s-phone">手机号码</label><input id="s-phone" name="phone" type="tel" autocomplete="off"></div>
+</form>
+
+<form id="form-large" novalidate>
+  <h3>大表单（6 个可见控件，应为自动选定容器）</h3>
+  <div class="form-row"><label for="l-name">姓名</label><input id="l-name" name="personName" type="text" autocomplete="off"></div>
+  <div class="form-row"><label for="l-idcard">身份证号</label><input id="l-idcard" name="idCard" type="text" autocomplete="off"></div>
+  <div class="form-row"><label for="l-email">邮箱</label><input id="l-email" name="email" type="email" autocomplete="off"></div>
+  <div class="form-row"><label for="l-org">所在单位</label><input id="l-org" name="organization" type="text" autocomplete="off"></div>
+  <div class="form-row"><label for="l-gender">性别</label>
+    <select id="l-gender" name="gender"><option value="">请选择</option><option value="男">男</option><option value="女">女</option></select>
+  </div>
+  <div class="form-row"><label for="l-note">备注</label><textarea id="l-note" name="note" maxlength="30"></textarea></div>
+</form>
+
+<div class="page-actions">
+  <button type="button" id="submit-btn">页面提交登记</button>
+</div>
+
+<script>
+(function () {
+  window.__qa = { submitClicks: 0, submitEvents: 0, errors: [] };
+  document.getElementById('submit-btn').addEventListener('click', function () { window.__qa.submitClicks += 1; });
+  document.addEventListener('submit', function (e) { e.preventDefault(); window.__qa.submitEvents += 1; }, true);
+  window.addEventListener('error', function (e) { window.__qa.errors.push(String(e.message)); });
+  window.addEventListener('unhandledrejection', function (e) { window.__qa.errors.push('rejection:' + String(e.reason)); });
+})();
+</script>
+</body>
+</html>

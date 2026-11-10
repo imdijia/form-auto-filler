@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>v2 夹具 - Tier 3 最小公共祖先</title>
+<!--
+  QA v2 静态夹具。无外链资源、无远程字体、无协议 URL 字面。
+  判别意图：页面完全没有 form / dialog，字段分散在两个 section，
+  二者唯一共同祖先是 #common-ancestor。若实现直接兜底 body，
+  会把容器外的普通文本框 #outside-free-text 一起填掉 —— 该断言必然变红。
+  正确实现应以最小公共祖先为容器，只填祖先子树内控件。
+-->
+<style>
+  body { font-family: system-ui, sans-serif; margin: 16px; color: #1f2a3d; background: #f4f6f9; }
+  .search-bar { border: 1px solid #c8d2e0; background: #fff; padding: 10px 12px; margin-bottom: 14px; }
+  .search-bar label { display: inline-block; margin-right: 6px; font-size: 13px; }
+  .search-bar input, .search-bar select { margin-right: 14px; padding: 3px 6px; }
+  #common-ancestor { border: 1px solid #7d90ab; background: #fff; padding: 10px 14px; border-radius: 4px; }
+  #common-ancestor > h3 { margin: 0 0 8px; font-size: 14px; color: #33507a; }
+  .form-section { border: 1px dashed #b6c3d4; padding: 8px 12px 10px; margin: 10px 0; border-radius: 4px; }
+  .form-section > h4 { margin: 0 0 8px; font-size: 13px; color: #33507a; }
+  .form-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .form-row label { width: 110px; font-size: 13px; flex: none; }
+  .form-row input, .form-row select, .form-row textarea { width: 220px; padding: 3px 6px; font: inherit; box-sizing: border-box; }
+  .page-actions button { padding: 5px 16px; font: inherit; cursor: pointer; }
+</style>
+</head>
+<body data-page="free-nodes">
+
+<div class="search-bar" id="outside-search">
+  <label for="global-search">全局搜索</label>
+  <input id="global-search" name="globalSearch" type="search" placeholder="搜索关键字">
+  <label for="global-filter">筛选状态</label>
+  <select id="global-filter" name="globalFilter"><option value="">全部</option><option value="draft">草稿</option></select>
+  <label for="outside-free-text">容器外普通文本框</label>
+  <input id="outside-free-text" name="outsideFreeText" type="text" value="OUTSIDE-FREE-SENTINEL">
+</div>
+
+<div id="common-ancestor">
+  <h3>无表单标签的字段区（最小公共祖先）</h3>
+  <section class="form-section" id="free-section-a">
+    <h4>分组甲</h4>
+    <div class="form-row"><label for="a-name">姓名</label><input id="a-name" name="personName" type="text" autocomplete="off"></div>
+    <div class="form-row"><label for="a-phone">手机号码</label><input id="a-phone" name="phone" type="tel" autocomplete="off"></div>
+    <div class="form-row"><label for="a-email">邮箱</label><input id="a-email" name="email" type="email" autocomplete="off"></div>
+  </section>
+  <section class="form-section" id="free-section-b">
+    <h4>分组乙</h4>
+    <div class="form-row"><label for="b-org">所在单位</label><input id="b-org" name="organization" type="text" autocomplete="off"></div>
+    <div class="form-row"><label for="b-school">毕业院校</label><input id="b-school" name="school" type="text" autocomplete="off"></div>
+    <div class="form-row"><label for="b-gender">性别</label>
+      <select id="b-gender" name="gender"><option value="">请选择</option><option value="男">男</option><option value="女">女</option></select>
+    </div>
+    <div class="form-row"><label for="b-note">备注</label><textarea id="b-note" name="note" maxlength="30"></textarea></div>
+  </section>
+</div>
+
+<div class="page-actions">
+  <button type="button" id="submit-btn">页面提交登记</button>
+</div>
+
+<script>
+(function () {
+  window.__qa = { submitClicks: 0, submitEvents: 0, errors: [] };
+  document.getElementById('submit-btn').addEventListener('click', function () { window.__qa.submitClicks += 1; });
+  document.addEventListener('submit', function (e) { e.preventDefault(); window.__qa.submitEvents += 1; }, true);
+  window.addEventListener('error', function (e) { window.__qa.errors.push(String(e.message)); });
+  window.addEventListener('unhandledrejection', function (e) { window.__qa.errors.push('rejection:' + String(e.reason)); });
+})();
+</script>
+</body>
+</html>

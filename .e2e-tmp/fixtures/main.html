@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>v2 主夹具 - 弹窗挂 body 且字段分散在多个非 form 容器</title>
+<!--
+  QA v2 本地静态夹具。无外链资源、无远程字体、无统计 SDK、无图片外链。
+  所有样式与脚本内联。URL 一律不写成完整协议字面，避免命中零外发门禁。
+  页面不发起任何网络请求；扩展若发起 fetch/XHR/WS/ES/sendBeacon，由 E2E 侧监控捕获。
+
+  判别意图（修复前必然失败）：
+  1. dialog 直接挂 body，内部字段分散在 3 个 section（均非 form）+ 1 个诱饵 form（仅 1 控件）。
+     若实现仍是 v1 的「最近 form」，只会命中诱饵 form 的 1 个控件，其余全部漏填。
+  2. 容器之外放搜索框、筛选项、普通文本框，用于断言不误填。
+  3. 页面自己的提交按钮与 submit 计数器，用于断言扩展从未点击、从未提交。
+-->
+<style>
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 16px; color: #1f2a3d; background: #f4f6f9; }
+  .search-bar { border: 1px solid #c8d2e0; background: #ffffff; padding: 10px 12px; margin-bottom: 14px; border-radius: 4px; }
+  .search-bar label { display: inline-block; margin-right: 6px; font-size: 13px; }
+  .search-bar input, .search-bar select { margin-right: 14px; padding: 3px 6px; }
+  .ant-modal { border: 1px solid #7d90ab; background: #ffffff; max-width: 980px; padding: 0 0 14px; border-radius: 6px; box-shadow: 0 6px 22px rgba(20, 38, 66, 0.16); }
+  .ant-modal-title { padding: 10px 16px; background: #e8eef6; font-weight: 600; border-bottom: 1px solid #c8d2e0; }
+  .ant-modal-body { padding: 6px 16px; }
+  .form-section { border: 1px dashed #b6c3d4; padding: 8px 12px 10px; margin: 10px 0; border-radius: 4px; }
+  .form-section > h3 { margin: 0 0 8px; font-size: 14px; color: #33507a; }
+  .form-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .form-row label { width: 112px; font-size: 13px; flex: none; }
+  .form-row input, .form-row select, .form-row textarea { width: 230px; padding: 3px 6px; font: inherit; box-sizing: border-box; }
+  .form-row textarea { height: 46px; }
+  #f-rich { min-height: 34px; width: 230px; border: 1px solid #9aa9bd; padding: 4px 6px; box-sizing: border-box; }
+  .component-line { display: flex; align-items: center; gap: 8px; margin: 7px 0; }
+  .component-line > span.tag { width: 112px; font-size: 13px; flex: none; }
+  .ant-select, .el-select, .ant-picker, .el-date-editor { display: inline-block; border: 1px solid #9aa9bd; border-radius: 3px; min-width: 230px; background: #fff; }
+  .ant-select-selector, .el-select__wrapper { display: flex; align-items: center; gap: 6px; padding: 3px 6px; }
+  .ant-select-selection-search-input, .el-select__input { border: 0; outline: none; width: 90px; font: inherit; }
+  .ant-select-selection-item, .el-select__selected-item { font-size: 13px; color: #1f2a3d; }
+  .ant-picker input, .el-date-editor input { border: 0; outline: none; width: 200px; padding: 4px 6px; font: inherit; }
+  .skip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+  .skip-grid .form-row label { width: 132px; }
+  .skip-grid input { width: 180px; }
+  .hidden-visually { display: none; }
+  #decoy-form { margin: 10px 0; padding: 8px 12px; border: 1px solid #d8b26a; background: #fffaf0; }
+  .page-actions { padding: 6px 16px 0; }
+  .page-actions button { padding: 5px 16px; font: inherit; cursor: pointer; }
+  .portal { position: absolute; z-index: 50; border: 1px solid #9aa9bd; background: #fff; min-width: 200px; padding: 4px 0; }
+  .portal > div { padding: 4px 12px; cursor: pointer; font-size: 13px; }
+  .portal > div:hover { background: #e8eef6; }
+  .is-error { border: 2px solid #b3261e !important; }
+</style>
+</head>
+<body>
+
+<!-- ===== 容器之外：搜索框、筛选项、普通文本框，全部不得被写入 ===== -->
+<div class="search-bar" id="outside-search">
+  <label for="global-search">全局搜索</label>
+  <input id="global-search" name="globalSearch" type="search" placeholder="搜索关键字">
+  <label for="global-filter">筛选状态</label>
+  <select id="global-filter" name="globalFilter">
+    <option value="">全部</option>
+    <option value="draft">草稿</option>
+    <option value="approved">已通过</option>
+  </select>
+  <label for="outside-text">容器外备注</label>
+  <input id="outside-text" name="outsideText" type="text" value="OUTSIDE-SENTINEL">
+</div>
+
+<!-- ===== 自动容器候选 Tier 1：dialog 直接挂 body，字段分散在多个非 form 容器内 ===== -->
+<div role="dialog" id="main-dialog" class="ant-modal" aria-label="人员信息登记">
+  <div class="ant-modal-title">人员信息登记</div>
+  <div class="ant-modal-body">
+
+    <section class="form-section" id="section-basic">
+      <h3>基本信息（非 form 容器一）</h3>
+      <div class="form-row"><label for="f-name">姓名</label><input id="f-name" name="personName" type="text" autocomplete="off"></div>
+      <div class="form-row"><label for="f-phone">手机号码</label><input id="f-phone" name="phone" type="tel" maxlength="11" autocomplete="off"></div>
+      <div class="form-row"><label for="f-idcard">身份证号</label><input id="f-idcard" name="idCard" type="text" maxlength="18" autocomplete="off"></div>
+      <div class="form-row"><label for="f-birth">出生日期</label><input id="f-birth" name="birth" type="text" placeholder="YYYY-MM-DD" autocomplete="off"></div>
+      <div class="form-row"><label for="f-email">邮箱</label><input id="f-email" name="email" type="email" autocomplete="off"></div>
+      <div class="form-row"><label for="f-org">所在单位</label><input id="f-org" name="organization" type="text" autocomplete="off"></div>
+      <div class="form-row"><label for="f-school">毕业院校</label><input id="f-school" name="school" type="text" autocomplete="off"></div>
+      <div class="form-row"><label for="f-address">详细地址</label><input id="f-address" name="address" type="text" autocomplete="off"></div>
+      <div class="form-row"><label for="f-gender">性别</label>
+        <select id="f-gender" name="gender"><option value="">请选择</option><option value="男">男</option><option value="女">女</option></select>
+      </div>
+      <div class="form-row"><label for="f-edu">学历</label>
+        <select id="f-edu" name="education"><option value="">请选择</option><option value="本科">本科</option><option value="硕士">硕士</option><option value="博士">博士</option></select>
+      </div>
+      <div class="form-row"><label for="f-note">备注</label><textarea id="f-note" name="note" maxlength="30"></textarea></div>
+      <div class="form-row"><label for="f-rich">备注富文本</label><div id="f-rich" contenteditable="true" role="textbox" aria-label="备注富文本"></div></div>
+    </section>
+
+    <section class="form-section" id="section-component">
+      <h3>组件库控件（非 form 容器二）：含隐藏 input 与显示节点</h3>
+
+      <div class="component-line">
+        <span class="tag">学历组件</span>
+        <div class="ant-select ant-select-single" id="ant-select-root">
+          <div class="ant-select-selector">
+            <span class="ant-select-selection-search">
+              <input id="f-ant-select" class="ant-select-selection-search-input" type="text" role="combobox" aria-label="学历组件">
+            </span>
+            <span class="ant-select-selection-item" id="ant-select-display">请选择</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="component-line">
+        <span class="tag">职位组件</span>
+        <div class="el-select" id="el-select-root">
+          <div class="el-select__wrapper">
+            <input id="f-el-select" class="el-select__input" type="text" aria-label="职位组件">
+            <span class="el-select__selected-item" id="el-select-display">请选择</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="component-line">
+        <span class="tag">入职日期组件</span>
+        <div class="ant-picker" id="ant-picker-root">
+          <input id="f-ant-date" type="text" placeholder="YYYY-MM-DD" aria-label="入职日期组件">
+        </div>
+      </div>
+
+      <div class="component-line">
+        <span class="tag">离职日期组件</span>
+        <div class="el-date-editor" id="el-date-root">
+          <input id="f-el-date" type="text" placeholder="YYYY-MM-DD" aria-label="离职日期组件">
+        </div>
+      </div>
+
+      <!-- 组件库常见的隐藏值载体：不得被写入 -->
+      <input type="hidden" id="f-hidden-input" name="hiddenToken" value="HIDDEN-TOKEN-SENTINEL">
+      <!-- 组件库常见的只读展示节点（非 input），仅用于观察 -->
+      <span id="component-display-readonly" aria-label="只读展示">当前无选中项</span>
+    </section>
+
+    <section class="form-section" id="section-skipped">
+      <h3>应跳过控件（非 form 容器三）：均带原始哨兵值</h3>
+      <div class="skip-grid">
+        <div class="form-row"><label for="skip-hidden-attr">hidden 属性</label><input id="skip-hidden-attr" type="text" hidden value="SENTINEL-HIDDEN-ATTR"></div>
+        <div class="form-row"><label for="skip-display-none">display none</label><input id="skip-display-none" type="text" style="display:none" value="SENTINEL-DISPLAY-NONE"></div>
+        <div class="form-row"><label for="skip-visibility">visibility hidden</label><input id="skip-visibility" type="text" style="visibility:hidden" value="SENTINEL-VISIBILITY"></div>
+        <div class="form-row"><label for="skip-disabled">disabled</label><input id="skip-disabled" type="text" disabled value="SENTINEL-DISABLED"></div>
+        <div class="form-row"><label for="skip-readonly">readonly</label><input id="skip-readonly" type="text" readonly value="SENTINEL-READONLY"></div>
+        <div class="form-row"><label for="skip-file">type file</label><input id="skip-file" type="file"></div>
+        <div class="form-row"><label for="skip-password">type password</label><input id="skip-password" type="password" value="SENTINEL-PASSWORD"></div>
+        <div class="form-row"><label for="skip-captcha">验证码</label><input id="skip-captcha" name="captcha" aria-label="验证码" type="text" value="SENTINEL-CAPTCHA"></div>
+        <div class="form-row"><label for="skip-hidden-type">type hidden</label><input id="skip-hidden-type" type="hidden" value="SENTINEL-HIDDEN-TYPE"></div>
+        <div class="form-row"><label for="skip-otp">短信校验码</label><input id="skip-otp" name="otpCode" aria-label="短信校验码" type="text" value="SENTINEL-OTP"></div>
+      </div>
+    </section>
+
+    <!-- 诱饵 form：只有 1 个控件。若「只找最近 form」则只会填这里 -->
+    <form id="decoy-form" novalidate>
+      <label for="f-decoy">诱饵字段</label>
+      <input id="f-decoy" name="decoy" type="text" autocomplete="off">
+      <button type="submit" id="submit-btn">页面提交登记</button>
+    </form>
+  </div>
+  <div class="page-actions">
+    <button type="button" id="dialog-save-btn">页面保存草稿</button>
+  </div>
+</div>
+
+<!-- ===== body 级 portal：组件库下拉选项（初始隐藏，由 trigger 手势打开） ===== -->
+<div class="portal ant-select-dropdown ant-select-dropdown-hidden" id="ant-dropdown" aria-hidden="true" style="display:none; top:220px; left:180px;">
+  <div class="ant-select-item-option"><div class="ant-select-item-option-content">本科</div></div>
+  <div class="ant-select-item-option"><div class="ant-select-item-option-content">硕士</div></div>
+  <div class="ant-select-item-option"><div class="ant-select-item-option-content">博士</div></div>
+</div>
+<div class="portal el-select__popper" id="el-popper" aria-hidden="true" style="display:none; top:300px; left:180px;">
+  <div class="el-select-dropdown__item">工程师</div>
+  <div class="el-select-dropdown__item">主管</div>
+  <div class="el-select-dropdown__item">专员</div>
+</div>
+
+<script>
+(function () {
+  window.__qa = { submitClicks: 0, submitEvents: 0, errors: [], pageErrors: 0, portalOpens: 0 };
+  var submitBtn = document.getElementById('submit-btn');
+  var saveBtn = document.getElementById('dialog-save-btn');
+  var decoyForm = document.getElementById('decoy-form');
+  submitBtn.addEventListener('click', function () { window.__qa.submitClicks += 1; });
+  saveBtn.addEventListener('click', function () { window.__qa.submitClicks += 1; });
+  decoyForm.addEventListener('submit', function (e) { e.preventDefault(); window.__qa.submitEvents += 1; });
+  document.addEventListener('submit', function (e) { e.preventDefault(); window.__qa.submitEvents += 1; }, true);
+  window.addEventListener('error', function (e) { window.__qa.errors.push(String(e.message)); });
+  window.addEventListener('unhandledrejection', function (e) { window.__qa.errors.push('rejection:' + String(e.reason)); });
+
+  // 组件库 portal 交互：trigger 手势打开下拉，点击选项写回显示节点并同步隐藏 input。
+  var antRoot = document.getElementById('ant-select-root');
+  var antDropdown = document.getElementById('ant-dropdown');
+  var antDisplay = document.getElementById('ant-select-display');
+  function openAnt() {
+    window.__qa.portalOpens += 1;
+    antDropdown.style.display = 'block';
+    antDropdown.classList.remove('ant-select-dropdown-hidden');
+    antDropdown.removeAttribute('aria-hidden');
+  }
+  antRoot.addEventListener('mousedown', openAnt);
+  antRoot.addEventListener('click', openAnt);
+  antDropdown.addEventListener('click', function (e) {
+    var opt = e.target.closest ? e.target.closest('.ant-select-item-option') : null;
+    if (!opt) return;
+    var text = (opt.textContent || '').trim();
+    antDisplay.textContent = text;
+    document.getElementById('f-ant-select').value = text;
+    antDropdown.style.display = 'none';
+    antDropdown.classList.add('ant-select-dropdown-hidden');
+    antDropdown.setAttribute('aria-hidden', 'true');
+  });
+
+  var elRoot = document.getElementById('el-select-root');
+  var elPopper = document.getElementById('el-popper');
+  var elDisplay = document.getElementById('el-select-display');
+  function openEl() {
+    window.__qa.portalOpens += 1;
+    elPopper.style.display = 'block';
+    elPopper.removeAttribute('aria-hidden');
+  }
+  elRoot.addEventListener('mousedown', openEl);
+  elRoot.addEventListener('click', openEl);
+  elPopper.addEventListener('click', function (e) {
+    var opt = e.target.closest ? e.target.closest('.el-select-dropdown__item') : null;
+    if (!opt) return;
+    var text = (opt.textContent || '').trim();
+    elDisplay.textContent = text;
+    document.getElementById('f-el-select').value = text;
+    elPopper.style.display = 'none';
+    elPopper.setAttribute('aria-hidden', 'true');
+  });
+})();
+</script>
+</body>
+</html>
